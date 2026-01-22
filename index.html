@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NASDAQ Stock Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .button:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: white;
+            font-size: 1.2em;
+        }
+        
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .results {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        thead {
+            background: #667eea;
+            color: white;
+        }
+        
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        tbody tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .rank {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+        
+        .roe-value {
+            font-weight: 600;
+            color: #e74c3c;
+        }
+        
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .info-box {
+            background: #e8eaf6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 1.8em;
+            }
+            
+            table {
+                font-size: 14px;
+            }
+            
+            th, td {
+                padding: 10px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 NASDAQ Stock Analyzer</h1>
+            <p>Find the 10 stocks with the lowest Return on Equity (ROE)</p>
+        </div>
+        
+        <div class="controls">
+            <div class="info-box">
+                <h3>About ROE (Return on Equity)</h3>
+                <p>ROE measures a company's profitability by revealing how much profit a company generates with shareholders' equity. Lower ROE may indicate less efficient use of equity capital.</p>
+            </div>
+            <button class="button" id="analyzeBtn" onclick="analyzeStocks()">
+                🔍 Analyze NASDAQ Stocks
+            </button>
+        </div>
+        
+        <div id="loadingDiv" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Analyzing NASDAQ stocks... This may take a moment.</p>
+        </div>
+        
+        <div id="errorDiv" class="error" style="display: none;"></div>
+        
+        <div id="resultsDiv" style="display: none;">
+            <div class="results">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Symbol</th>
+                            <th>Company Name</th>
+                            <th>ROE (%)</th>
+                            <th>Price ($)</th>
+                            <th>Market Cap</th>
+                        </tr>
+                    </thead>
+                    <tbody id="stockTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // For demo purposes, using mock data
+        // Replace the API_ENDPOINT with your Vercel deployment URL
+        const API_ENDPOINT = '/api/analyze'; // Change this after deployment
+        
+        async function analyzeStocks() {
+            const analyzeBtn = document.getElementById('analyzeBtn');
+            const loadingDiv = document.getElementById('loadingDiv');
+            const resultsDiv = document.getElementById('resultsDiv');
+            const errorDiv = document.getElementById('errorDiv');
+            const stockTableBody = document.getElementById('stockTableBody');
+            
+            // Reset UI
+            analyzeBtn.disabled = true;
+            loadingDiv.style.display = 'block';
+            resultsDiv.style.display = 'none';
+            errorDiv.style.display = 'none';
+            
+            try {
+                // Mock data for demonstration
+                // In production, use: const response = await fetch(API_ENDPOINT);
+                await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate API delay
+                
+                const mockData = [
+                    { symbol: 'AAPL', name: 'Apple Inc.', roe: 3.45, price: 185.50, marketCap: 2800000000000 },
+                    { symbol: 'MSFT', name: 'Microsoft Corporation', roe: 4.12, price: 378.20, marketCap: 2750000000000 },
+                    { symbol: 'GOOGL', name: 'Alphabet Inc.', roe: 5.23, price: 142.30, marketCap: 1800000000000 },
+                    { symbol: 'AMZN', name: 'Amazon.com Inc.', roe: 5.67, price: 155.80, marketCap: 1600000000000 },
+                    { symbol: 'NVDA', name: 'NVIDIA Corporation', roe: 6.34, price: 495.20, marketCap: 1200000000000 },
+                    { symbol: 'META', name: 'Meta Platforms Inc.', roe: 6.78, price: 385.40, marketCap: 980000000000 },
+                    { symbol: 'TSLA', name: 'Tesla Inc.', roe: 7.23, price: 248.50, marketCap: 790000000000 },
+                    { symbol: 'AVGO', name: 'Broadcom Inc.', roe: 7.89, price: 890.30, marketCap: 420000000000 },
+                    { symbol: 'COST', name: 'Costco Wholesale', roe: 8.12, price: 675.20, marketCap: 300000000000 },
+                    { symbol: 'ADBE', name: 'Adobe Inc.', roe: 8.45, price: 520.40, marketCap: 240000000000 }
+                ];
+                
+                const stocks = mockData; // Replace with: await response.json();
+                
+                // Populate table
+                stockTableBody.innerHTML = '';
+                stocks.forEach((stock, index) => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="rank">#${index + 1}</td>
+                        <td><strong>${stock.symbol}</strong></td>
+                        <td>${stock.name}</td>
+                        <td class="roe-value">${stock.roe}%</td>
+                        <td>$${stock.price.toFixed(2)}</td>
+                        <td>$${formatMarketCap(stock.marketCap)}</td>
+                    `;
+                    stockTableBody.appendChild(row);
+                });
+                
+                loadingDiv.style.display = 'none';
+                resultsDiv.style.display = 'block';
+                
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                errorDiv.style.display = 'block';
+                errorDiv.textContent = `Error: ${error.message}. Please try again.`;
+            } finally {
+                analyzeBtn.disabled = false;
+            }
+        }
+        
+        function formatMarketCap(value) {
+            if (value >= 1e12) return (value / 1e12).toFixed(2) + 'T';
+            if (value >= 1e9) return (value / 1e9).toFixed(2) + 'B';
+            if (value >= 1e6) return (value / 1e6).toFixed(2) + 'M';
+            return value.toString();
+        }
+    </script>
+</body>
+</html>
